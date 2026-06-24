@@ -45,8 +45,8 @@ venv/
 
 # ---- 协议原文 (版权文档, 不入库) ----
 # 放在 spec/ 供本地参考, 不提交到仓库
-spec/*.pdf
-spec/*.PDF
+#spec/*.pdf
+#spec/*.PDF
 
 # ---- 编辑器/系统 ----
 .DS_Store
