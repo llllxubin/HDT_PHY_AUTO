@@ -1,0 +1,98 @@
+{
+  "//说明": "权限边界由工具层强制执行, 不依赖模型自觉。三档: allow=自主, ask=每次问人, deny=硬拦截。hooks=事件触发的确定性脚本(不经agent判断)。CLAUDE.md管倾向, 本文件管边界与自动化。",
+  "permissions": {
+    "allow": [
+      "Bash(make test)",
+      "Bash(make lint)",
+      "Bash(make stim)",
+      "Bash(make compile)",
+      "Bash(make sim)",
+      "Bash(make compare)",
+      "Bash(make clean)",
+      "Bash(verible-verilog-lint:*)",
+      "Bash(verible-verilog-format:*)",
+      "Bash(vcs:*)",
+      "Bash(python3 scripts/gen_stim.py)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git stash)",
+      "Bash(git branch)",
+      "Edit(rtl/*.sv)",
+      "Write(rtl/*.sv)",
+      "Edit(PROGRESS.md)",
+      "Write(PROGRESS.md)",
+      "Read(*)"
+    ],
+    "ask": [
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch -d:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Edit(tb/*.sv)",
+      "Edit(Makefile)",
+      "Write(*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(git branch -D:*)",
+      "Bash(rm -rf:*)",
+      "Edit(ref/ref_model.py)",
+      "Write(ref/ref_model.py)",
+      "Edit(scripts/compare.py)",
+      "Write(scripts/compare.py)",
+      "Edit(scripts/gen_stim.py)",
+      "Write(scripts/gen_stim.py)",
+      "Edit(../W1_HDT_TX/modules/fec_encoder.md)",
+      "Write(../W1_HDT_TX/modules/fec_encoder.md)",
+      "Bash(git push:*)"
+    ]
+  },
+  "hooks": {
+    "//hooks说明": "当前仅启用 PostToolUse(改完sv自动format+lint)。Stop/SessionStart 见 _disabled_hooks, 跑顺后按 HOOKS_README.md 启用。",
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post_edit_sv.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "_disabled_hooks": {
+    "//禁用说明": "暂未启用的 hook 模板。启用见 .claude/HOOKS_README.md: 把对应块移进上面 hooks 段。Stop hook 务必单agent跑顺、有手感后再开。",
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop_force_test.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session_start_progress.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
