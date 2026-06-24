@@ -1,0 +1,14 @@
+# ---- 仿真/构建产物 (不入库) ----
+sim/
+# VCS 杂项产物 (根目录)
+cm.log
+csrc/
+*.daidir/
+ucli.key
+vc_hdrs.h
+.vcs_lib_lock
+*.vpd
+*.fsdb
+novas.*
+verdiLog/
+DVEfiles/

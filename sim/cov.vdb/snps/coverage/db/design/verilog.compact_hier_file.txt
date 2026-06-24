@@ -1,2 +1,0 @@
-\$unit::rtl/fec_encoder.sv::tb/tb_fec_encoder.sv 00
-tb_fec_encoder2790

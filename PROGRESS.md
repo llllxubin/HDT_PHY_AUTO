@@ -4,9 +4,20 @@
 > 人也可读此文件快速了解 agent 干到哪了。
 
 ## 当前状态
-- 阶段: **已通过** ✅ (rtl/fec_encoder.sv 实现完成, make test exit 0)
-- make test 最近结果: **PASS** — lint 0 warning + 46序列/1706对全匹配 0容差
-- RTL 文件: rtl/fec_encoder.sv (存在, ~135行, 组合输出版)
+- 阶段: **已通过 + 闸门加固** ✅ (make test 与 make verify 均 exit 0)
+- make test (快门): lint 0warn + 46序列/1706对0容差 + 覆盖率100% + selfcheck PASS
+- make verify (全门): test + mutation kill rate 100% (6/6 杀死)
+- RTL 文件: rtl/fec_encoder.sv (组合输出版, 未再改)
+
+## 验证闸门 (本轮新增)
+- 功能覆盖率: TB covergroup(cp_state/x_state_bit), scripts/check_cov.py 闸门, 现100%。
+- mutation: scripts/mutate.py 注入6类变异(spec §4.5), 隔离构建(BUILD=sim/mut)跑回归,
+  compare/selfcheck 失败=杀死。kill rate 100% >= 90%。
+- 关键修复: no_clear(漏seq_start清零)初始存活——因每序列都termination回0态, 清零冗余。
+  补"元变形不变量"定向自检(两种脏状态下seq_start首bit输出必相等), 写sim/selfcheck.txt,
+  make selfcheck 闸门读取(因VCS $fatal仍退0, 改用状态文件)。补后6/6全杀死。
+- Makefile: make test=快门, make verify=全门, make help=帮助(默认目标)。
+- git卫生: 加.gitignore, 把误跟踪的sim/构建产物与cm.log移出版本库。
 
 ## 已尝试方案 (避免重复踩坑)
 | 轮次 | 改动 | make test 结果 | 失败原因/结论 |
