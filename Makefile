@@ -24,6 +24,7 @@ MODULE  ?= fec_encoder
 
 RTL      ?= rtl/$(MODULE).sv
 TB       := tb/tb_$(MODULE).sv
+SVA      := $(wildcard tb/$(MODULE)_sva.sv)   # 接口断言 checker (可选, 经 bind 绑定)
 SIM_DIR  := sim
 BUILD    ?= $(SIM_DIR)
 # 以下三者 TB 内硬编码于 sim/ 相对路径, 不随 BUILD 变 (注释独立成行, 避免尾随空格混入变量值)
@@ -31,6 +32,7 @@ STIM     := $(SIM_DIR)/stim_bits.txt
 DUMP     := $(SIM_DIR)/rtl_dump.txt
 COV_SUM  := $(SIM_DIR)/cov_summary.txt
 SELFCHK  := $(SIM_DIR)/selfcheck.txt
+SVA_STAT := $(SIM_DIR)/sva_status.txt
 REF      := ref/$(MODULE)/ref_model.py
 SIMV     := $(BUILD)/simv
 
@@ -42,7 +44,7 @@ VCS_FLAGS  := -full64 -sverilog -timescale=1ns/1ps -assert svaext \
 SIM_FLAGS  := -cm line+cond+fsm+tgl+branch -cm_dir $(CURDIR)/$(BUILD)/cov.vdb \
               -l $(BUILD)/sim.log
 
-.PHONY: help test verify lint stim compile sim compare coverage mutation clean
+.PHONY: help test verify lint stim compile sim compare coverage sva selfcheck mutation clean
 
 .DEFAULT_GOAL := help
 
@@ -61,13 +63,15 @@ help:
 	@echo "  make sim      运行仿真, 产出 dump 与覆盖率汇总"
 	@echo "  make compare  vs Python golden 逐bit比对 (0容差)"
 	@echo "  make coverage 功能覆盖率闸门 (cp_state/x_state_bit 100%)"
+	@echo "  make sva      接口断言闸门 (spec §4.4 四条 SVA)"
+	@echo "  make selfcheck seq_start 清零不变量闸门"
 	@echo "  make mutation 变异杀伤率闸门 (kill rate >=90%)"
 	@echo "  make clean    清理仿真产物 (不动 rtl/tb/ref/scripts/spec)"
 	@echo ""
 	@echo "常用变量: MODULE=<模块名>  RTL=<路径>  BUILD=<构建目录>"
 
-# ---- 快门: 日常迭代 (lint + 0容差比对 + 功能覆盖率 + 定向自检) ----
-test: lint stim compile sim compare coverage selfcheck
+# ---- 快门: 日常迭代 (lint + 0容差比对 + 功能覆盖率 + 接口SVA + 定向自检) ----
+test: lint stim compile sim compare coverage sva selfcheck
 	@echo "[make test] ===== 全部步骤通过 (exit 0) ====="
 
 # ---- 全门: 快门 + mutation 杀伤率闸门 ----
@@ -90,7 +94,7 @@ stim:
 # ---- VCS 编译 RTL + TB -> simv ----
 compile: $(RTL) $(TB)
 	@mkdir -p $(BUILD)
-	$(VCS) $(VCS_FLAGS) $(RTL) $(TB)
+	$(VCS) $(VCS_FLAGS) $(RTL) $(TB) $(SVA)
 
 # ---- 仿真: 从工程根运行, TB 用相对路径读 stim / 写 dump+cov_summary ----
 sim:
@@ -104,6 +108,13 @@ compare:
 # ---- 功能覆盖率闸门 (spec §4.3: cp_state/x_state_bit 100%) ----
 coverage:
 	python3 scripts/check_cov.py --summary $(COV_SUM) --min 100.0
+
+# ---- 接口 SVA 闸门 (spec §4.4): checker 自计错误数写状态文件, 此处以退出码闸门 ----
+sva:
+	@if [ -z "$(SVA)" ]; then echo "[sva] 无 SVA 文件, 跳过"; \
+	 elif [ ! -f $(SVA_STAT) ]; then echo "[FAIL] sva: 缺 $(SVA_STAT) (sim 没跑?)"; exit 1; \
+	 elif ! grep -q '^PASS' $(SVA_STAT); then echo "[FAIL] sva: $$(cat $(SVA_STAT))"; exit 1; \
+	 else echo "[PASS] sva: $$(cat $(SVA_STAT))"; fi
 
 # ---- 定向自检闸门: seq_start 清零不变量 (TB 写, 此处以退出码闸门) ----
 selfcheck:
@@ -121,5 +132,5 @@ mutation:
 clean:
 	rm -rf $(SIM_DIR)/simv $(SIM_DIR)/simv.daidir $(SIM_DIR)/csrc \
 	       $(SIM_DIR)/cov.vdb $(SIM_DIR)/*.log $(SIM_DIR)/mut $(SIM_DIR)/mutchk \
-	       $(STIM) $(DUMP) $(COV_SUM) $(SELFCHK) \
+	       $(STIM) $(DUMP) $(COV_SUM) $(SELFCHK) $(SVA_STAT) \
 	       csrc *.daidir ucli.key vc_hdrs.h .vcs_lib_lock

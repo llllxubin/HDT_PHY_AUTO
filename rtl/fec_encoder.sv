@@ -88,8 +88,9 @@ module fec_encoder (
   end
 
   // ---- 组合输出 (0 级流水) ----
-  assign code_out       = fec_pair(eff_bit, eff_state);
-  assign code_out_valid = do_encode;
+  // 复位期钳 0 (spec §2: 复位期间所有输出为0), 使该契约不依赖上游是否驱动。
+  assign code_out       = rst_n ? fec_pair(eff_bit, eff_state) : 2'd0;
+  assign code_out_valid = rst_n ? do_encode : 1'b0;
 
   // ------------------------------------------------------------
   // 时序: 状态移位 + termination 计数 + term_done 脉冲

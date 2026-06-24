@@ -9,15 +9,24 @@
 - make verify (全门): test + mutation kill rate 100% (6/6 杀死)
 - RTL 文件: rtl/fec_encoder.sv (组合输出版, 未再改)
 
-## 验证闸门 (本轮新增)
+## 验证闸门 (已建齐)
 - 功能覆盖率: TB covergroup(cp_state/x_state_bit), scripts/check_cov.py 闸门, 现100%。
-- mutation: scripts/mutate.py 注入6类变异(spec §4.5), 隔离构建(BUILD=sim/mut)跑回归,
-  compare/selfcheck 失败=杀死。kill rate 100% >= 90%。
-- 关键修复: no_clear(漏seq_start清零)初始存活——因每序列都termination回0态, 清零冗余。
-  补"元变形不变量"定向自检(两种脏状态下seq_start首bit输出必相等), 写sim/selfcheck.txt,
-  make selfcheck 闸门读取(因VCS $fatal仍退0, 改用状态文件)。补后6/6全杀死。
-- Makefile: make test=快门, make verify=全门, make help=帮助(默认目标)。
+- 接口SVA (spec §4.4): tb/fec_encoder_sva.sv checker 经 bind 绑定DUT, 4条断言
+  (A1 seq_start清零 / A2 flush后5个0才term_done / A3 term_done时状态全0 / A4 复位期valid==0)。
+  VCS对断言失败仍退0, 故checker自计错误数写sim/sva_status.txt, make sva 以退出码闸门。
+  为A4成立, RTL组合输出加rst_n钳0(spec §2)。抽查term_4zero变异触发A2/A3, 证非空断言。
+- mutation: scripts/mutate.py 注入6类变异(spec §4.5), 隔离构建(BUILD=sim/mut)跑
+  compare+sva+selfcheck, 任一失败=杀死。kill rate 100% (6/6)。
+- selfcheck: no_clear变异初存活(termination使清零冗余)→补seq_start清零元变形自检
+  (两种脏状态下首bit输出必相等)→make selfcheck闸门→补后全杀死。
+- Makefile: test=快门(lint/compile/sim/compare/coverage/sva/selfcheck),
+  verify=全门(test+mutation), help=帮助(默认目标)。
 - git卫生: 加.gitignore, 把误跟踪的sim/构建产物与cm.log移出版本库。
+
+## spec §6 完成定义对照
+- [x] 编译通过  [x] Verible lint 0warn  [x] 接口SVA pass  [x] vs golden 0容差
+- [x] 末态归零不变量(A3 SVA + selfcheck)  [x] cp_state/x_state_bit 100%
+- [x] mutation kill rate>=90% (现100%)  [x] make test/verify 整体 exit 0
 
 ## 已尝试方案 (避免重复踩坑)
 | 轮次 | 改动 | make test 结果 | 失败原因/结论 |

@@ -87,7 +87,7 @@ def main():
         # 隔离构建+比对+定向自检 (清掉上一个变异的增量编译产物, 避免串扰)
         # selfcheck 让 seq_start 清零不变量参与杀伤判定 (no_clear 类变异由此被杀)。
         sh(f"rm -rf {MUT_DIR}/csrc {MUT_DIR}/simv {MUT_DIR}/simv.daidir")
-        r = sh(f"make compile sim compare selfcheck MODULE={a.module} RTL={path} BUILD={MUT_DIR}")
+        r = sh(f"make compile sim compare sva selfcheck MODULE={a.module} RTL={path} BUILD={MUT_DIR}")
         if r.returncode != 0:
             killed += 1
             print(f"  [KILLED ] {m['name']:11s} {m['desc']}")
