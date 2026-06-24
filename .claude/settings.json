@@ -1,5 +1,4 @@
 {
-  "//说明": "权限边界由工具层强制执行, 不依赖模型自觉。三档: allow=自主, ask=每次问人, deny=硬拦截。hooks=事件触发的确定性脚本(不经agent判断)。CLAUDE.md管倾向, 本文件管边界与自动化。",
   "permissions": {
     "allow": [
       "Bash(make test)",
@@ -12,7 +11,7 @@
       "Bash(verible-verilog-lint:*)",
       "Bash(verible-verilog-format:*)",
       "Bash(vcs:*)",
-      "Bash(python3 scripts/gen_stim.py)",
+      "Bash(python3 scripts/gen_stim.py:*)",
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -38,6 +37,7 @@
       "Write(*)"
     ],
     "deny": [
+      "Bash(git push:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git reset --hard:*)",
@@ -45,19 +45,17 @@
       "Bash(git clean -fdx:*)",
       "Bash(git branch -D:*)",
       "Bash(rm -rf:*)",
-      "Edit(ref/ref_model.py)",
-      "Write(ref/ref_model.py)",
+      "Edit(ref/fec_encoder/ref_model.py)",
+      "Write(ref/fec_encoder/ref_model.py)",
       "Edit(scripts/compare.py)",
       "Write(scripts/compare.py)",
       "Edit(scripts/gen_stim.py)",
       "Write(scripts/gen_stim.py)",
-      "Edit(../W1_HDT_TX/modules/fec_encoder.md)",
-      "Write(../W1_HDT_TX/modules/fec_encoder.md)",
-      "Bash(git push:*)"
+      "Edit(W1/modules/fec_encoder.md)",
+      "Write(W1/modules/fec_encoder.md)"
     ]
   },
   "hooks": {
-    "//hooks说明": "当前仅启用 PostToolUse(改完sv自动format+lint)。Stop/SessionStart 见 _disabled_hooks, 跑顺后按 HOOKS_README.md 启用。",
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -70,8 +68,7 @@
       }
     ]
   },
-  "_disabled_hooks": {
-    "//禁用说明": "暂未启用的 hook 模板。启用见 .claude/HOOKS_README.md: 把对应块移进上面 hooks 段。Stop hook 务必单agent跑顺、有手感后再开。",
+  "disabledHooks": {
     "Stop": [
       {
         "matcher": "",

@@ -1,14 +1,61 @@
-# ---- 仿真/构建产物 (不入库) ----
-sim/
-# VCS 杂项产物 (根目录)
-cm.log
+# ============================================================
+# PHY TX 工程 .gitignore
+# 合并自: Claude生成版 + Claude Code自动生成版
+# ============================================================
+
+# ---- 仿真中间产物 (不入库; sim/.gitkeep 保留目录占位) ----
+sim/*
+!sim/.gitkeep
+
+# ---- VCS 编译/仿真产物 ----
+simv
+simv.daidir/
 csrc/
 *.daidir/
+DVEfiles/
 ucli.key
 vc_hdrs.h
 .vcs_lib_lock
+AN.DB/
+
+# 波形
 *.vpd
 *.fsdb
+*.vcd
 novas.*
 verdiLog/
-DVEfiles/
+
+# 覆盖率
+*.vdb
+*.cm
+cm.log
+coverage/
+urgReport/
+
+# ---- Verible ----
+*.bak
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# ---- 协议原文 (版权文档, 不入库) ----
+# 放在 spec/ 供本地参考, 不提交到仓库
+spec/*.pdf
+spec/*.PDF
+
+# ---- 编辑器/系统 ----
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# ---- 日志/临时 ----
+*.log
+/tmp/
+*.tmp

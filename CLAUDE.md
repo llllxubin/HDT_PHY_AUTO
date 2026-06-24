@@ -36,3 +36,20 @@
 - 验证充分性目标(覆盖率/mutation): spec 第4节
 - 回归各步骤: Makefile
 - 权限边界: .claude/settings.json (工具层强制, 非靠自觉)
+
+## 协议原文使用边界
+
+- HDT 协议原文在 `spec/HDT_PHY_core.pdf`。
+- 实现**已 frozen** 的模块时: 以 `W1/modules/<module>.md` 为唯一权威输入,
+  **不查协议原文** —— frozen spec 已是协议要点的提炼, 查原文反而易被无关细节带偏。
+- **仅在**为新模块做 W1a(协议消化、起草规格)时, 才读 `spec/` 原文相关章节。
+- 原文受版权保护: 不外传、不进公开仓库、docs 中引用只注章节号不大段复制。
+
+## 文档归置 (写文档时)
+
+- 给人读的文档放 `docs/`(不是 `W1/`, W1 是规格契约非文档)。
+- 设计说明 → `docs/design/<module>_design.md`
+- 验证报告 → `docs/verification/<module>_vreport.md`
+- 集成文档 → `docs/integration/`
+- 规范详见 `docs/README.md`。
+- 时机: 设计文档在 RTL 稳定后写, 验证报告在回归通过、覆盖率达标后写。
