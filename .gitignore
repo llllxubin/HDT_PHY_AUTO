@@ -59,3 +59,4 @@ venv/
 *.log
 /tmp/
 *.tmp
+PROGRESS_W1.md
