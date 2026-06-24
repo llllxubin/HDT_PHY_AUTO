@@ -156,7 +156,7 @@ MAC FIFO ─rd_en→ ┌──────── 比特域 ───────
 | tx_ctrl_fsm | modules/tx_ctrl_fsm.md | 待 D1 (默认统一状态机) |
 | interval_spacing | modules/interval_spacing.md | 规格已明,待起草 |
 | fec_encoder | modules/fec_encoder.md | 规格已明,待起草 |
-| puncturing | modules/puncturing.md | 规格已明,待起草 |
+| puncturing | modules/puncturing.md | draft 已起草,待 review (输出接口 §7.1 待拍板) |
 | symbol_mapper | modules/symbol_mapper.md | 规格已明,待起草 |
 | symbol_assembler | modules/symbol_assembler.md | 规格已明,待 D7 |
 | srrc_upsample | modules/srrc_upsample.md | 定点已定,待 D5细化/EVM确认 |
