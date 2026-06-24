@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!DOCTYPE cov SYSTEM "ucdb_srcinfo.dtd">
+  <srcinfo name="/home/icer_lin/ic_projects/phy_tx_project"  >
+    <ucapi_version  major_ver="13"  minor_ver="1"  patch_str="O-2018.09-SP2"  />
+      <fileinfo name="rtl/fec_encoder.sv"  id="0"  />
+      <fileinfo name="tb/tb_fec_encoder.sv"  id="1"  />
+      <fileinfo name="/opt/synopsys/vcs/O-2018.09-SP2/etc/sva/rec_ltl_classes_package.svp"  id="2"  />
+    </srcinfo>

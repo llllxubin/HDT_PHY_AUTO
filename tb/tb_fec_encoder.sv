@@ -42,6 +42,7 @@ module tb_fec_encoder;
   integer fd, code, val;
   string  line;
   integer dump_fd;
+  bit     first_bit_of_seq = 0;   // 序列首bit标志 (VCS要求先声明后用, 故上移至此)
 
   initial begin
     // 读激励文件
@@ -102,8 +103,6 @@ module tb_fec_encoder;
     end
     if (in_seq) flush_seq();
   endtask
-
-  bit first_bit_of_seq = 0;
 
   // 送一个数据bit (背靠背, 无空拍)
   task send_bit(input bit b);
