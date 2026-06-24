@@ -1,6 +1,6 @@
 // =============================================================
 // fec_encoder testbench
-// 读 sim/stim_bits.txt 激励 -> 驱动 DUT -> dump code_out 到 sim/rtl_dump.txt
+// 读 sim/fec_encoder/stim_bits.txt 激励 -> 驱动 DUT -> dump code_out 到 sim/fec_encoder/rtl_dump.txt
 // 序列边界: 每个 # SEQ 对应一次 seq_start (首bit) + seq_flush (数据末)
 // 时钟域: 48MHz 单一时钟 (周期此处用 20.833ns 近似, 仿真不敏感)
 // 判定: 离线由 scripts/compare.py vs Python golden 完成, 本 TB 只负责激励与 dump
@@ -57,7 +57,7 @@ module tb_fec_encoder;
 
   initial begin
     // 读激励文件
-    fd = $fopen("sim/stim_bits.txt", "r");
+    fd = $fopen("sim/fec_encoder/stim_bits.txt", "r");
     if (fd == 0) begin $display("[TB][FATAL] 打不开 stim_bits.txt"); $finish; end
     while (!$feof(fd)) begin
       code = $fgets(line, fd);
@@ -71,7 +71,7 @@ module tb_fec_encoder;
     $fclose(fd);
 
     // 打开 dump 文件
-    dump_fd = $fopen("sim/rtl_dump.txt", "w");
+    dump_fd = $fopen("sim/fec_encoder/rtl_dump.txt", "w");
 
     // 复位
     bit_in = 0; bit_in_valid = 0; seq_start = 0; seq_flush = 0;
@@ -83,8 +83,8 @@ module tb_fec_encoder;
 
     $fclose(dump_fd);
 
-    // ---- 覆盖率汇总: 写 sim/cov_summary.txt, 供 scripts/check_cov.py 闸门判定 ----
-    cov_fd = $fopen("sim/cov_summary.txt", "w");
+    // ---- 覆盖率汇总: 写 sim/fec_encoder/cov_summary.txt, 供 scripts/check_cov.py 闸门判定 ----
+    cov_fd = $fopen("sim/fec_encoder/cov_summary.txt", "w");
     $fwrite(cov_fd, "cp_state %0.4f\n",    cg.cp_state.get_coverage());
     $fwrite(cov_fd, "x_state_bit %0.4f\n", cg.x_state_bit.get_coverage());
     $fwrite(cov_fd, "overall %0.4f\n",     cg.get_coverage());
@@ -97,7 +97,7 @@ module tb_fec_encoder;
     dump_en = 0;
     check_seqstart_clear();
 
-    $display("[TB] 完成, dump 写入 sim/rtl_dump.txt");
+    $display("[TB] 完成, dump 写入 sim/fec_encoder/rtl_dump.txt");
     $finish;
   end
 
@@ -191,7 +191,7 @@ module tb_fec_encoder;
   // 元变形不变量: seq_start 必清零 => 首bit输出只取决于该bit, 与历史脏状态无关。
   // 两种不同脏状态下对同一首bit的输出必须相等; no_clear 变异会令二者不同 -> $fatal。
   // 注: VCS 对 $fatal 仍返回退出码0, 无法靠仿真退出码闸门;
-  // 故把结论写 sim/selfcheck.txt, 由 Makefile selfcheck 目标读取并以退出码闸门。
+  // 故把结论写 sim/fec_encoder/selfcheck.txt, 由 Makefile selfcheck 目标读取并以退出码闸门。
   task check_seqstart_clear();
     bit [1:0] oa, ob;
     integer   sc_fd;
@@ -204,7 +204,7 @@ module tb_fec_encoder;
     feed_plain(1);
     start_and_capture(1'b1, ob);
 
-    sc_fd = $fopen("sim/selfcheck.txt", "w");
+    sc_fd = $fopen("sim/fec_encoder/selfcheck.txt", "w");
     if (oa !== ob) begin
       $fwrite(sc_fd, "FAIL seqstart_clear A=%b B=%b\n", oa, ob);
       $display("[CHECK] seq_start 清零失效: 首bit输出依赖历史脏状态 (A=%b B=%b)", oa, ob);

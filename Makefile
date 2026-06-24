@@ -14,10 +14,11 @@
 # 判定基准独立且禁改: ref/<mod>/ref_model.py, scripts/compare.py, spec。
 # 多模块复用: 改 MODULE 即可 (默认 fec_encoder)。其余模块待其 W1 frozen 后启用。
 #
-# 可覆盖变量 (供 mutation 等隔离构建用, 不污染默认 sim/):
+# 可覆盖变量 (供 mutation 等隔离构建用, 不污染默认 sim/<MODULE>/):
 #   RTL=<路径>    被编译的 RTL (默认 rtl/$(MODULE).sv)
-#   BUILD=<目录>  构建产物目录 (simv/csrc/cov.vdb/log, 默认 sim)
-# 注意: TB 内硬编码 stim/dump/cov_summary 路径于 sim/, 不随 BUILD 变。
+#   BUILD=<目录>  构建产物目录 (simv/csrc/cov.vdb/log, 默认 sim/$(MODULE))
+# 数据产物 (stim/dump/cov_summary/...) 按模块隔离于 sim/$(MODULE)/, 多模块不互相覆盖。
+# 注意: TB 内硬编码上述数据路径于 sim/$(MODULE)/, 与 SIM_DIR 一致, 不随 BUILD 变。
 # =============================================================
 
 MODULE  ?= fec_encoder
@@ -25,9 +26,9 @@ MODULE  ?= fec_encoder
 RTL      ?= rtl/$(MODULE).sv
 TB       := tb/tb_$(MODULE).sv
 SVA      := $(wildcard tb/$(MODULE)_sva.sv)   # 接口断言 checker (可选, 经 bind 绑定)
-SIM_DIR  := sim
+SIM_DIR  := sim/$(MODULE)
 BUILD    ?= $(SIM_DIR)
-# 以下三者 TB 内硬编码于 sim/ 相对路径, 不随 BUILD 变 (注释独立成行, 避免尾随空格混入变量值)
+# 以下数据路径 TB 内硬编码于 sim/$(MODULE)/, 与 SIM_DIR 一致, 不随 BUILD 变 (注释独立成行, 避免尾随空格混入变量值)
 STIM     := $(SIM_DIR)/stim_bits.txt
 DUMP     := $(SIM_DIR)/rtl_dump.txt
 COV_SUM  := $(SIM_DIR)/cov_summary.txt
@@ -129,8 +130,7 @@ mutation:
 	python3 scripts/mutate.py --module $(MODULE) --rtl $(RTL) --min-kill 90.0
 
 # ---- 清理仿真产物 (不动 rtl/tb/ref/scripts/spec) ----
+# 按模块隔离后, 整个 sim/$(MODULE)/ 都是产物, 直接整目录删除; 再清根目录 VCS 残留。
 clean:
-	rm -rf $(SIM_DIR)/simv $(SIM_DIR)/simv.daidir $(SIM_DIR)/csrc \
-	       $(SIM_DIR)/cov.vdb $(SIM_DIR)/*.log $(SIM_DIR)/mut $(SIM_DIR)/mutchk \
-	       $(STIM) $(DUMP) $(COV_SUM) $(SELFCHK) $(SVA_STAT) \
+	rm -rf $(SIM_DIR) \
 	       csrc *.daidir ucli.key vc_hdrs.h .vcs_lib_lock

@@ -6,7 +6,7 @@
 // (enc_state/term_cnt/term_active) 与端口, 无需层次引用。
 //
 // 闸门接入: VCS 对断言失败仍返回退出码0, 故本模块自计错误数, 在 final 块写
-// sim/sva_status.txt (PASS/FAIL), 由 Makefile `sva` 目标以退出码闸门。
+// sim/fec_encoder/sva_status.txt (PASS/FAIL), 由 Makefile `sva` 目标以退出码闸门。
 //
 // 四条断言 (spec §4.4):
 //   A1 seq_start 当拍编码器清零      -> 首bit后状态 == {4'b0, 首bit}
@@ -78,7 +78,7 @@ module fec_encoder_sva (
   // ---- 结论落盘: 供 Makefile sva 目标以退出码闸门 ----
   final begin
     integer fd;
-    fd = $fopen("sim/sva_status.txt", "w");
+    fd = $fopen("sim/fec_encoder/sva_status.txt", "w");
     if (err == 0) $fwrite(fd, "PASS sva 0 errors\n");
     else          $fwrite(fd, "FAIL sva %0d errors\n", err);
     $fclose(fd);

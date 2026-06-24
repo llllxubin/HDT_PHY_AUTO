@@ -6,10 +6,10 @@
 测试失败=变异被"杀死"(好), 测试仍通过=变异"存活"(测试有盲区)。
 
 每个变异:
-  1. 复制 golden RTL, 做一处字符串替换 -> sim/mut/<name>.sv
-  2. 用主 Makefile 隔离构建并比对 (RTL=<变异> BUILD=sim/mut)
+  1. 复制 golden RTL, 做一处字符串替换 -> sim/<module>/mut/<name>.sv
+  2. 用主 Makefile 隔离构建并比对 (RTL=<变异> BUILD=sim/<module>/mut)
   3. compare 退出码: !=0 => 被杀死(测试发现差异); ==0 => 存活(测试没发现)
-绝不改判定基准, 也不动 rtl/ 本体 (只读 golden, 变异写到 sim/mut/)。
+绝不改判定基准, 也不动 rtl/ 本体 (只读 golden, 变异写到 sim/<module>/mut/)。
 
 kill rate = 杀死数 / 有效变异数, 闸门要求 >= --min-kill (默认 90)。
 
@@ -44,9 +44,6 @@ MUTATIONS = [
      "repl": "eff_state = enc_state;"},
 ]
 
-MUT_DIR = "sim/mut"
-
-
 def sh(cmd):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
@@ -58,13 +55,16 @@ def main():
     p.add_argument("--min-kill", type=float, default=90.0)
     a = p.parse_args()
 
+    # 隔离构建目录按模块命名空间, 与 Makefile SIM_DIR=sim/<MODULE> 一致, 不污染主构建。
+    mut_dir = os.path.join("sim", a.module, "mut")
+
     if not os.path.exists(a.rtl):
         print(f"[FAIL] mutation: 找不到 golden RTL {a.rtl}")
         sys.exit(2)
     with open(a.rtl) as f:
         golden = f.read()
 
-    os.makedirs(MUT_DIR, exist_ok=True)
+    os.makedirs(mut_dir, exist_ok=True)
 
     # 确保激励就绪 (复用主流程的激励)
     r = sh(f"make stim MODULE={a.module}")
@@ -81,13 +81,13 @@ def main():
             print(f"  [INJ-ERR] {m['name']:11s} find 未唯一匹配 ({n})")
             continue
         mutsrc = golden.replace(m["find"], m["repl"], 1)
-        path = os.path.join(MUT_DIR, m["name"] + ".sv")
+        path = os.path.join(mut_dir, m["name"] + ".sv")
         with open(path, "w") as f:
             f.write(mutsrc)
         # 隔离构建+比对+定向自检 (清掉上一个变异的增量编译产物, 避免串扰)
         # selfcheck 让 seq_start 清零不变量参与杀伤判定 (no_clear 类变异由此被杀)。
-        sh(f"rm -rf {MUT_DIR}/csrc {MUT_DIR}/simv {MUT_DIR}/simv.daidir")
-        r = sh(f"make compile sim compare sva selfcheck MODULE={a.module} RTL={path} BUILD={MUT_DIR}")
+        sh(f"rm -rf {mut_dir}/csrc {mut_dir}/simv {mut_dir}/simv.daidir")
+        r = sh(f"make compile sim compare sva selfcheck MODULE={a.module} RTL={path} BUILD={mut_dir}")
         if r.returncode != 0:
             killed += 1
             print(f"  [KILLED ] {m['name']:11s} {m['desc']}")

@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 覆盖率闸门 (coverage gate)
-读 TB 写出的 sim/cov_summary.txt, 校验功能覆盖率达标, 否则非0退出。
+读 TB 写出的 sim/<module>/cov_summary.txt, 校验功能覆盖率达标, 否则非0退出。
 
 spec §4.3 目标: cp_state 100% (32状态全遍历), x_state_bit 100% (状态×输入交叉)。
 本脚本是闸门, 判定独立于 RTL: 只看覆盖率数字是否达阈值。
 
-用法: python3 scripts/check_cov.py --summary sim/cov_summary.txt [--min 100.0]
+用法: python3 scripts/check_cov.py --summary sim/fec_encoder/cov_summary.txt [--min 100.0]
 退出码: 0=达标, 非0=未达标/文件缺失。
 """
 import argparse

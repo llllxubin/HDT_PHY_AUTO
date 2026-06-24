@@ -13,9 +13,9 @@
 - 功能覆盖率: TB covergroup(cp_state/x_state_bit), scripts/check_cov.py 闸门, 现100%。
 - 接口SVA (spec §4.4): tb/fec_encoder_sva.sv checker 经 bind 绑定DUT, 4条断言
   (A1 seq_start清零 / A2 flush后5个0才term_done / A3 term_done时状态全0 / A4 复位期valid==0)。
-  VCS对断言失败仍退0, 故checker自计错误数写sim/sva_status.txt, make sva 以退出码闸门。
+  VCS对断言失败仍退0, 故checker自计错误数写sim/fec_encoder/sva_status.txt, make sva 以退出码闸门。
   为A4成立, RTL组合输出加rst_n钳0(spec §2)。抽查term_4zero变异触发A2/A3, 证非空断言。
-- mutation: scripts/mutate.py 注入6类变异(spec §4.5), 隔离构建(BUILD=sim/mut)跑
+- mutation: scripts/mutate.py 注入6类变异(spec §4.5), 隔离构建(BUILD=sim/<module>/mut)跑
   compare+sva+selfcheck, 任一失败=杀死。kill rate 100% (6/6)。
 - selfcheck: no_clear变异初存活(termination使清零冗余)→补seq_start清零元变形自检
   (两种脏状态下首bit输出必相等)→make selfcheck闸门→补后全杀死。
@@ -49,6 +49,8 @@
 - 工具: VCS O-2018.09-SP2 (license 27000@localhost), python3 3.8, GNU make 4.2.1。
 - Verible 原本未装 → 已装 v0.0-4080 静态包到 ~/.local (软链 ~/.local/bin), lint 闸门可用。
 - Makefile 已建: make test = lint→stim→compile→sim→compare。lint 纳入闸门(有warning即fail)。
-- 路径耦合: TB 硬编码 sim/stim_bits.txt 与 sim/rtl_dump.txt; gen_stim/compare 须用同路径(Makefile已对齐)。
+- 路径耦合(已规范化): 仿真产物按模块隔离于 sim/<MODULE>/ (Makefile SIM_DIR=sim/$(MODULE),
+  TB/SVA 硬编码 sim/fec_encoder/ 与之一致, mutate.py BUILD=sim/<module>/mut)。
+  原平铺 sim/ 在多模块时会互相覆盖, 现已消除该隐患, 与 gen_stim.py 既定约定一致。
 - simv 必须从工程根运行 (TB 用相对路径), Makefile 的 sim 目标已保证 CWD=根。
 - 覆盖率: VCS -cm 已采集, 但暂未作为 test 失败条件 (先过0容差比对, 覆盖率/mutation 后续加)。
