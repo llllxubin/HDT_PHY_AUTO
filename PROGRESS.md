@@ -4,23 +4,25 @@
 > 人也可读此文件快速了解 agent 干到哪了。
 
 ## 当前状态
-- 阶段: **基础设施就绪, RTL 未开始** (等用户发"开始"指令再写 rtl/fec_encoder.sv)
-- make test 最近结果: 仅 `make stim` 验证通过 (46序列/1476bit); 其余步骤待 RTL
-- RTL 文件: rtl/fec_encoder.sv (尚不存在)
+- 阶段: **已通过** ✅ (rtl/fec_encoder.sv 实现完成, make test exit 0)
+- make test 最近结果: **PASS** — lint 0 warning + 46序列/1706对全匹配 0容差
+- RTL 文件: rtl/fec_encoder.sv (存在, ~135行, 组合输出版)
 
 ## 已尝试方案 (避免重复踩坑)
 | 轮次 | 改动 | make test 结果 | 失败原因/结论 |
 |---|---|---|---|
-| 0 | 建基础设施 (装verible+建Makefile) | make stim PASS | RTL 未写, 未跑完整 test |
+| 0 | 建基础设施 (装verible+建Makefile) | make stim PASS | RTL 未写 |
+| 1 | 初版RTL: registered输出 | compile FAIL→修TB→compare FAIL | TB声明顺序bug(已修); registered输出致序列0少1对 |
+| 2 | 改组合输出 (spec §5 0级流水) | **PASS exit 0** | 组合输出与TB posedge采样对齐, 边界竞争消除 |
 
 ## 当前卡点
-- 无。等用户 go-ahead 后开始写 RTL。
+- 无。fec_encoder 0容差比对已通过。
 
-## 下一步
-- 实现 rtl/fec_encoder.sv (抽头见 spec §5 / ref_model.py): 
-  a0=bit^s1^s3^s4, a1=bit^s0^s1^s2^s4, 移位 s={bit,s0,s1,s2,s3};
-  code_out={a1,a0}; seq_start清零; seq_flush后自动追加5个0并拉term_done; #1非阻塞。
-- 然后 make test, FAIL 则按报错改 RTL (每轮先 commit)。
+## 下一步 (增量, 非阻塞 — spec 完成定义剩余项)
+- 覆盖率闸门: TB 加 covergroup(cp_state 32状态/x_state_bit), 回归加收敛门槛 (当前 -cm 仅采集未gate)。
+- mutation kill rate ≥90%: 二级指标, 需搭变异注入。
+- formal: 序列末态归零不变量 (当前靠输出比对间接保证)。
+- 上述均需改 TB/加脚本, 属 ask 权限, 待用户决定是否本阶段做。
 
 ## 环境/TB 已知问题记录
 > 首次跑通时踩到的环境坑(VCS选项/库路径/TB时序), 记在这, 后续模块复用时省事。

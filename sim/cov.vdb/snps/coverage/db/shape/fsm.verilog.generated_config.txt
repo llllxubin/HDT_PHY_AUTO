@@ -1,6 +1,6 @@
 // Synopsys, Inc.
 // User: icer_lin
-// Date: Wed Jun 24 19:03:03 2026
+// Date: Wed Jun 24 19:09:40 2026
 
 // ==================================================================================================
 // This config file prototype is produced from the last run using the complete list of extracted fsms.

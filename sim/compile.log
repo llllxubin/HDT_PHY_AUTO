@@ -7,7 +7,7 @@ Command: vcs -full64 -sverilog -timescale=1ns/1ps -assert svaext -cm line+cond+f
 -cm_dir /home/icer_lin/ic_projects/phy_tx_project/sim/cov.vdb -Mdir=sim/csrc -o sim/simv \
 -l sim/compile.log +notimingcheck rtl/fec_encoder.sv tb/tb_fec_encoder.sv
                          Chronologic VCS (TM)
-       Version O-2018.09-SP2_Full64 -- Wed Jun 24 19:03:03 2026
+       Version O-2018.09-SP2_Full64 -- Wed Jun 24 19:10:00 2026
                Copyright (c) 1991-2018 by Synopsys Inc.
                          ALL RIGHTS RESERVED
 
@@ -15,30 +15,7 @@ This program is proprietary and confidential information of Synopsys Inc.
 and may be used and disclosed only as authorized in a license agreement
 controlling such use and disclosure.
 
-Parsing design file 'rtl/fec_encoder.sv'
-Parsing design file 'tb/tb_fec_encoder.sv'
-Top Level Modules:
-       tb_fec_encoder
-TimeScale is 1 ns / 1 ps
-VCS Coverage Metrics Release O-2018.09-SP2_Full64 Copyright (c) 1991-2018 by Synopsys Inc.
-Starting vcs inline pass...
-1 module and 0 UDP read.
-recompiling module tb_fec_encoder
-make[1]: Entering directory '/home/icer_lin/ic_projects/phy_tx_project/sim/csrc' \
+The design hasn't changed and need not be recompiled. 
+If you really want to, delete file /home/icer_lin/ic_projects/phy_tx_project/sim/simv.daidir/.vcs.timestamp and
+run VCS again.
 
-rm -f _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
-if [ -x /home/icer_lin/ic_projects/phy_tx_project/sim/simv ]; then chmod -x /home/icer_lin/ic_projects/phy_tx_project/sim/simv; \
-fi
-g++  -o /home/icer_lin/ic_projects/phy_tx_project/sim/simv -no-pie  -Wl,--no-as-needed \
--Wl,-rpath-link=./ -Wl,-rpath='$ORIGIN'/simv.daidir/ -Wl,-rpath=./simv.daidir/ -Wl,-rpath='$ORIGIN'/simv.daidir//scsim.db.dir \
--L/usr/lib/x86_64-linux-gnu -L/lib/x86_64-linux-gnu -Wl,--no-as-needed -rdynamic \
--Wl,-rpath=/opt/synopsys/vcs/O-2018.09-SP2/linux64/lib -L/opt/synopsys/vcs/O-2018.09-SP2/linux64/lib \
-objs/amcQw_d.o   _651964_archive_1.so  SIM_l.o       rmapats_mop.o rmapats.o rmar.o \
-rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o          -lzerosoft_rt_stubs -lvirsim \
--lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -lreader_common /opt/synopsys/vcs/O-2018.09-SP2/linux64/lib/libBA.a \
--luclinative /opt/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_tls.o   -Wl,-whole-archive \
--lvcsucli -Wl,-no-whole-archive       ./../simv.daidir/vc_hdrs.o    /opt/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_save_restore_new.o \
--ldl  -lc -lm -lpthread -ldl 
-/home/icer_lin/ic_projects/phy_tx_project/sim/simv up to date
-make[1]: Leaving directory '/home/icer_lin/ic_projects/phy_tx_project/sim/csrc'
-CPU time: .200 seconds to compile + .107 seconds to elab + .130 seconds to link
