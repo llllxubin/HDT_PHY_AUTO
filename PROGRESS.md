@@ -6,9 +6,9 @@
 
 ---
 
-## 当前活跃模块: puncturing ✅ 已通过
+## 当前活跃模块: puncturing ✅ 已通过 (快门+全门)
 
-- 阶段: **make test MODULE=puncturing 退出码 0** (快门全绿)。mutation 全门(make verify)尚未跑。
+- 阶段: **make test 与 make verify MODULE=puncturing 均退出码 0** (快门全绿 + mutation 100%)。
 - 各 target: lint 0warn / stim 69序列1273cycle / compile VCS clean / sim PASS /
   **compare 69序列1204cycle 0容差** / coverage 100% / sva 0errors / selfcheck PASS。
 - 文件:
@@ -37,7 +37,7 @@
 ### spec §4 完成定义对照 (puncturing)
 - [x] 编译通过  [x] Verible lint 0warn  [x] 接口SVA pass(A1/A3/A4/A5; A2 由 selfcheck+覆盖率间接)
 - [x] vs golden 0容差  [x] cp_rate/cp_cnt/cp_phase/x_rate_phase = 100%
-- [x] make test 整体 exit 0  [ ] mutation kill rate ≥90% (make verify 尚未跑, 待定)
+- [x] make test 整体 exit 0  [x] mutation kill rate 6/6 = 100% (≥90%), make verify exit 0
 
 ### 已尝试方案 (避免重复踩坑)
 | 轮次 | 改动 | make test 结果 | 结论 |
@@ -49,7 +49,9 @@
 - 无。puncturing 0 容差比对已通过。
 
 ### 下一步 (非阻塞)
-- 可选: `make verify MODULE=puncturing` 跑 mutation 杀伤率闸门 (目标 ≥90%)。
+- puncturing 已达完整 §4 完成定义 (含 mutation ≥90%), 无遗留。
+- mutate.py 已重构为按模块字典 (MUTATIONS_BY_MODULE); 后续模块各自加变异组即可,
+  未定义组会明确报错 (非静默放过)。
 - 链路下一模块: symbol_mapper (puncturing 的下游)。
 
 ---
