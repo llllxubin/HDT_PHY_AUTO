@@ -24,7 +24,7 @@ docs/
 
 - 按 `<模块名>_<文档类型>.md` 命名, 模块名与 W1/rtl 中一致。
 - design:        `fec_encoder_design.md`
-- verification:  `fec_encoder_vplan.md`(计划) / `fec_encoder_vreport.md`(报告)
+- verification:  `fec_encoder_vplan.md`(计划) / `fec_encoder_vreport.md`(报告) / `fec_encoder_journal.md`(迭代日志)
 - integration:   `tx_chain_integration.md`(链路级) / `<模块>_intf.md`(单模块接口)
 - 链路级/跨模块文档用 `tx_chain_` 或 `toplevel_` 前缀。
 
@@ -44,6 +44,14 @@ docs/
 - 未覆盖项说明(若有 coverage hole, 为何可接受)
 - DSP 模块: EVM 实测 vs spec 上限
 
+### verification/<module>_journal.md  (迭代日志, append-only)
+- design↔verify **每一轮来回**的原始流水账: 出 RTL→验证→发现 bug→修→再验证…
+- **append-only**: 既有 step 永不回改/删除, 只在末尾追加。供人工审阅过程, 区别于
+  vreport(成品结论)与 PROGRESS.md(可覆盖的状态快照)。
+- 模板见 `verification/_journal_template.md`; 每轮收口后由编排方(主 agent)追加一条 step。
+- 一条 step 必含: 动作 / 结果(PASS·FAIL+卡点 gate) / 发现的 bug(现象+定位+判定依据) /
+  处置(反馈谁改什么) / 产物·commit。
+
 ### integration/
 - 模块间接口对接的实际信号连接
 - 跨模块时序图
@@ -58,6 +66,7 @@ docs/
 
 - **design**: 模块 RTL 实现稳定后写(实现细节清楚时质量最高)。
 - **verification report**: 回归通过、覆盖率达标后写(有真实数据)。
+- **verification journal**: 贯穿全程, **每轮 design/verify 收口后即追加**(不等模块完成)。
 - 不要在实现前写设计文档(那是 W1 的事, 不是 docs)。
 
 ## 让 agent 写文档时

@@ -6,6 +6,40 @@
 
 ---
 
+## 权限冻结策略 (freeze-on-completion, monotonic) — 取代"放权→恢复"来回
+
+**背景**: 已确认 Claude Code v2.1.191 **不支持子 agent 级路径作用域 deny**
+(`tools`/`disallowedTools` 只到整工具粒度; 带路径 pattern 的 `permissions.deny` 是会话级全局)。
+故无法"给 verify 开 ref/compare 写权、同时对主 agent/design 关"。改用**只增不减的冻结式**:
+
+**deny 列表的三类目标**:
+| 类别 | 文件 | deny 策略 |
+|---|---|---|
+| A 永久契约 | `W1/**`(spec) | **永久 deny**, 任何阶段不写(只人工 out-of-band 改) |
+| B 每模块 golden | `ref/<m>/ref_model.py`(物理隔离) | **完成即冻**: 模块 `make verify` 过 → 当天**追加**该模块 deny; 未完成/活跃模块**不 deny** |
+| C 共享注册 | `compare.py`/`gen_stim.py`/`mutate.py` | 项目进行中**不 deny**(每模块都要加注册项); 全部模块收口后再统一冻 |
+
+**操作规程 (未来每个模块)**:
+1. 起一个新模块: **无需改 settings.json**(其 ref 与共享文件本就开放, 零放权摩擦)。
+2. 该模块 `make verify` exit 0 收口当天: 主 agent **自行追加** B 类 deny 两行
+   (`Edit/Write(ref/<m>/ref_model.py)`)。追加=收窄权限, self-modification 守门**放行**, 不需用户。
+3. 永不删 deny 行(单调)。删除=放宽=守门拦截, 也违背冻结语义。
+
+**铁律3 在 C 类共享文件上的补偿管控**: "删 deny ≠ 谁都能静默改"。靠 **permissionMode 模式差**
+把"按 agent 区分"找回一大半(子 agent 级*路径 deny*不支持, 但*模式差*支持):
+- **rtl-verify**(`permissionMode: acceptEdits`): 写 C 类自动放行 —— 正是合法 authoring 的 actor。
+- **主 agent / rtl-design**(default 模式): 写 C 类命中 `ask: Write(*)` → **每次弹窗要人批**, 不静默。
+- **已冻结**的 fec/puncturing ref 与 `W1/**`: 仍 `deny` 硬挡, deny 绝对优先, acceptEdits 也压不过。
+再叠 **逐轮 journal 人工审阅 + git diff**。注: gen_stim 非判定基准(铁律3 只点名 ref_model/compare/spec)。
+更强可选项(未做): 把每模块比对逻辑拆到 `ref/<m>/compare_<m>.py`, compare.py 退化为永久冻结的
+dispatcher, 则 C 类也能享受 B 类的"完成即冻"——属框架重构, 另行评估。
+
+**一次性迁移**: ✅ **已完成(2026-06-26, 用户手改 settings.json)**。已从旧"全 deny"切到冻结式:
+保留 deny = `W1/**` + `ref/fec_encoder` + `ref/puncturing`; 已放开 = 其余 5 模块 ref +
+`compare.py`/`gen_stim.py`/`mutate.py`。此后永久自服务, 不再需用户改 settings.json。
+
+---
+
 ## 当前活跃模块: puncturing ✅ 已通过 (快门+全门)
 
 - 阶段: **make test 与 make verify MODULE=puncturing 均退出码 0** (快门全绿 + mutation 100%)。
@@ -16,7 +50,8 @@
   - 黄金模型: `ref/puncturing/ref_model.py` (verify 侧独立按 spec Table 3.5 推导)。
   - TB/SVA: `tb/tb_puncturing.sv` + `tb/puncturing_sva.sv` (bind)。
   - 注册: `scripts/gen_stim.py` / `scripts/compare.py` 各加 puncturing 项 (替换 not_impl 桩, 未动其它模块)。
-  - 文档: `docs/design/puncturing_design.md` + `docs/verification/puncturing_vreport.md`。
+  - 文档: `docs/design/puncturing_design.md` + `docs/verification/puncturing_vreport.md`
+    + `docs/verification/puncturing_journal.md`(迭代日志, 回溯补记)。
 
 ### 本轮关键事件 (抗压缩, 务必保留)
 1. **回归暴露真实 DUT bug 并已修**: `Pat15of16` 常量 bit14/bit15 颠倒 → 15/16 模式 phase14
@@ -53,6 +88,13 @@
 - mutate.py 已重构为按模块字典 (MUTATIONS_BY_MODULE); 后续模块各自加变异组即可,
   未定义组会明确报错 (非静默放过)。
 - 链路下一模块: symbol_mapper (puncturing 的下游)。
+- **新增**: 每轮 design/verify 收口后追加 `docs/verification/<m>_journal.md`(模板
+  `docs/verification/_journal_template.md`); 权限改用冻结式(见顶部"权限冻结策略")。
+
+### ✅ 已完成: 权限冻结式一次性迁移 (2026-06-26)
+用户手改 settings.json 完成迁移。保留 deny = `W1/**` + `ref/fec_encoder` + `ref/puncturing`;
+已放开 = 其余 5 模块 ref + `scripts/{compare,gen_stim,mutate}.py`。
+此后: 起 symbol_mapper 等零放权; 各模块完成时主 agent 自行追加其 ref deny(自服务, 不再需用户)。
 
 ---
 
