@@ -36,6 +36,85 @@ def compare_fec_encoder(stim_path, dump_path, ref_mod):
         total+=len(golden)
     return True, f"{len(stim_seqs)}序列, {total}对全匹配, 0容差"
 
+def compare_puncturing(stim_path, dump_path, ref_mod):
+    # puncturing 逐 cycle 逐 bit 比对 (0 容差).
+    # stim 序列体: line0="R<rate>"; line1.. = "<a0><a1><v>" (a0,a1,valid).
+    # dump 序列体: 每个被驱动的 cycle 一行 "<cnt> <code_out_val>" (含气泡拍, 气泡=0 0).
+    # golden 用 ref_mod.pattern 独立推导 (相位序列起点复位; 气泡拍 cnt=0 且相位不前进).
+    def parse_stim(path):
+        seqs, cur = [], None
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("# SEQ"):
+                    if cur is not None:
+                        seqs.append(cur)
+                    cur = {"rate": None, "cyc": []}
+                elif not line or line.startswith("#"):
+                    continue
+                elif line.startswith("R"):
+                    cur["rate"] = int(line[1:])
+                else:  # "<a0><a1><v>"
+                    cur["cyc"].append((int(line[0]), int(line[1]), int(line[2])))
+        if cur is not None:
+            seqs.append(cur)
+        return seqs
+
+    def parse_dump(path):
+        seqs, cur = [], None
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("# SEQ"):
+                    if cur is not None:
+                        seqs.append(cur)
+                    cur = []
+                elif line and not line.startswith("#"):
+                    parts = line.split()
+                    cur.append((int(parts[0]), int(parts[1])))  # (cnt, val)
+        if cur is not None:
+            seqs.append(cur)
+        return seqs
+
+    def golden_cycles(rate, cyc):
+        p = ref_mod.pattern(rate)
+        L = len(p)
+        phase = 0
+        out = []
+        for (a0, a1, v) in cyc:
+            if v == 0:
+                out.append((0, 0))      # 气泡: 不产出, 相位保持不前进
+                continue
+            bits = []
+            if p[phase % L] == 1:
+                bits.append(a0 & 1)
+            if p[(phase + 1) % L] == 1:
+                bits.append(a1 & 1)
+            val = 0
+            for j, b in enumerate(bits):
+                val |= b << j
+            out.append((len(bits), val))
+            phase = (phase + 2) % L
+        return out
+
+    if not os.path.exists(dump_path):
+        return False, f"找不到RTL dump: {dump_path}"
+    stim_seqs = parse_stim(stim_path)
+    dump_seqs = parse_dump(dump_path)
+    if len(stim_seqs) != len(dump_seqs):
+        return False, f"序列数不符: 激励{len(stim_seqs)} vs RTL{len(dump_seqs)}"
+    total = 0
+    for si, (s, rtl) in enumerate(zip(stim_seqs, dump_seqs)):
+        golden = golden_cycles(s["rate"], s["cyc"])
+        if len(golden) != len(rtl):
+            return False, f"序列{si} cycle数不符: golden{len(golden)} vs RTL{len(rtl)}"
+        for k, (g, r) in enumerate(zip(golden, rtl)):
+            if g != r:
+                return False, (f"序列{si} cycle{k} 失配(rate={s['rate']}): "
+                               f"golden(cnt={g[0]},val={g[1]}) vs RTL(cnt={r[0]},val={r[1]})")
+        total += len(golden)
+    return True, f"{len(stim_seqs)}序列, {total}cycle 全匹配, 0容差"
+
 def not_impl(name):
     def _f(*a): raise NotImplementedError(f"{name} 比对逻辑待实现")
     return _f
@@ -43,7 +122,7 @@ def not_impl(name):
 COMPARATORS = {
     "fec_encoder":      compare_fec_encoder,
     "interval_spacing": not_impl("interval_spacing"),
-    "puncturing":       not_impl("puncturing"),
+    "puncturing":       compare_puncturing,
     "symbol_mapper":    not_impl("symbol_mapper"),
     "symbol_assembler": not_impl("symbol_assembler"),
     "srrc_upsample":    not_impl("srrc_upsample"),
