@@ -12,15 +12,21 @@
 - protocol_ref: [协议] HDT Core Spec Vol6 PartB §3.4.2 (Interval spacing), Table 3.4;
   Payload Zone 构成 §2.7.3; PDU Control 字段 §2.7.2 (PHY INT 2bit); rate 来源 §3.4 Table 3.2
 - 在链路中的位置: MAC(已白化 Payload octet 流) → **[interval_spacing]** → fec_encoder → puncturing
-- status: frozen   # draft / reviewed / frozen  —— 6 review点全确认+Table3.4已人核对; frozen 留给人
+- status: frozen   # draft / reviewed / frozen  —— 原已 frozen; 2026-06-25 加 pass-through 串化模式(升级为全链路通用 octet→bit 串化器, 服务 CH/PDU/fmt0, tx_ctrl_fsm ②) + bd_en 门控注脚(①); 降回 reviewed 待人重新 frozen
 - 全局约定继承: 见 00_toplevel.md (48MHz 单一时钟域, 无 CDC; MAC kstart 锁存配置, 同步 pull)
 
 ---
 
 ## 1. 功能描述 [协议]
 
-**仅 packet format 1 且存在 Payload 时生效**;short / format0 本模块旁路(透传,不切分)。
-把 MAC 送来的、**已白化**的 Payload Zone octet 流切成若干 "PHY Interval",并把每段
+本模块是**全链路通用 octet→bit 串化器**,两种模式由 tx_ctrl_fsm 驱动 [决策✓ ②]:
+- **(a) 切分模式** (`ivs_passthru=0`, fmt1 Payload): 按 Table 3.4 切 PHY Interval + zone padding;
+- **(b) pass-through 串化模式** (`ivs_passthru=1`, Control Header / PDU Header / fmt0 PDU+PL):
+  整 zone 当**一条连续序列**, 只串化、**不切分、不 zone padding**, 串满 `passthru_bit_len` 个 bit 即收尾。
+两模式都做 octet→bit 串化、驱 rd_en、在序列首/末发 seq_start/seq_flush。`ivs_en=0` 时模块 idle 不产出
+(preamble/PITS/idle 等非 bit-域期)。
+
+把 MAC 送来的、**已白化**的 Payload Zone octet 流切成若干 "PHY Interval"(切分模式),并把每段
 **串化为 1bit/cycle 喂给 fec_encoder**,同时在每段首/末发边界标记,使 FEC 对每个
 PHY Interval 各自独立编码 + 追加 termination + 复位(§3.4.3)。
 
@@ -76,8 +82,10 @@ interface: ivs_cfg
 signals:
   - {name: phy_int,        dir: input,  width: 2, desc: "[协议] PDU Control 的 PHY INT 字段, 选 Table 3.4 行"}
   - {name: rate_sel,       dir: input,  width: 3, desc: "[协议] Control Header RI (0b001=HDT2..0b101=HDT7.5), 选 Table 3.4 列"}
-  - {name: payload_len,    dir: input,  width: 16, desc: "[决策✓ KD-2 / 位宽默认] Payload Zone 总 octet 数 L (不含 padding); kstart 锁存"}
-  - {name: ivs_en,         dir: input,  width: 1, desc: "[默认] 本模块使能: 仅 fmt1 且有 Payload 时为 1; 否则旁路透传"}
+  - {name: payload_len,    dir: input,  width: 16, desc: "[决策✓ KD-2 / 位宽默认] Payload Zone 总 octet 数 L (不含 padding); 切分模式用; kstart 锁存"}
+  - {name: ivs_en,         dir: input,  width: 1, desc: "[决策✓] 本模块使能(产出): bit-域 zone(CH/PDU/payload)期间为 1; 非串化期(preamble/PITS/idle)为 0 不产出"}
+  - {name: ivs_passthru,   dir: input,  width: 1, desc: "[决策✓ ②] 1=pass-through(整 zone 串化, 不切分/padding, 用 passthru_bit_len 定长); 0=切分模式(fmt1 Payload, 用 Table3.4)"}
+  - {name: passthru_bit_len, dir: input, width: 10, desc: "[决策✓ ②④] pass-through 的 zone bit 长(CH=57, PDU Header=(pdu_hdr_len+3)×8, ≤528); 串满即 seq_flush, 末 octet 可部分使用"}
 
 # ---- 下游: 1bit/cycle 串行 + 边界, 直接喂 fec_encoder (bit_in/seq_start/seq_flush) ----
 interface: ivs_out
@@ -89,7 +97,10 @@ signals:
   - {name: seq_flush,      dir: output, width: 1, desc: "[决策✓ KD-4] PHY Interval 末数据 bit 后拉高 -> FEC 追加 termination"}
 
 handshake_rules:
-  - "ivs_en=0 (short/fmt0/empty payload): 本模块旁路, 不产出 (上游 Payload 不经此路)"
+  - "ivs_en=0: 模块 idle 不产出 (preamble/PITS/idle 等非 bit-域期)"
+  - "ivs_passthru=1 (CH/PDU Header/fmt0): 不查 Table3.4、不切分、不 zone padding; 串化 passthru_bit_len 个 bit (LSB-first, 末 octet 可只用前几 bit), 首 bit 发 seq_start, 串满后发 seq_flush"
+  - "ivs_passthru=0 & ivs_en=1 (fmt1 Payload): 以下切分模式规则生效"
+  - "[与 tx_ctrl_fsm 对齐 ①] rd_en '1 octet/8拍' 为使能时瞬时串化速率; 整体取数受 FSM bit-域门控(bd_en, 按符号率)节流, 平均远低于此, 防下游 assembler 浅 FIFO 溢出"
   - "N = Table3.4[phy_int][rate_sel]; payload_len/phy_int/rate_sel 在 kstart 锁存, 序列内不变"
   - "zone padding: 若 1<=payload_len<=15, 内部把有效长度补到 L_eff=16 (补的 octet 全 0); 否则 L_eff=payload_len"
   - "octet 计数器对每个 octet_in_valid +1; 计满 N 即段边界: 该段末 bit 串出后 seq_flush 拉高一拍, 下段首 bit 同拍 seq_start"

@@ -13,7 +13,7 @@
   §7.4.1 STS · §7.4.2 LTS(Zadoff-Chu)+ Table 7.7 · §7.4.3 GI · §7.4.4 终止符号 · §7.4.5 PITS;
   PCA→u: Vol6 PartB §2.7.1.1
 - 在链路中的位置: symbol_mapper → **[symbol_assembler]** → srrc_upsample
-- status: frozen   # draft / reviewed / frozen  —— 4决策+6 review点全确认(含LTS公式/p表/量化码人核对); frozen 留给人
+- status: frozen   # draft / reviewed / frozen  —— 原已 frozen; 2026-06-25 补 IDLE 相注脚(供 SRRC 尾flush喂零, tx_ctrl_fsm 对齐), 降回 reviewed 待人重新 frozen
 - 全局约定继承: 见 00_toplevel.md (48MHz 单一时钟域, 无 CDC); 符号 Q0.9 (继承 symbol_mapper KD-B)
 
 ---
@@ -114,6 +114,7 @@ handshake_rules:
   - "phase=PREAMBLE: 本地计数器依次产 9×STS(4) -> GI(4=xu13..16) -> LTS#1(17) -> LTS#2(17)"
   - "phase=DATA: 从符号 FIFO 弹出一个数据符号 (CH/PDU/PL/终止符号已按序在 FIFO 中)"
   - "phase=PITS: 本地计数器产 6 个 PITS 常量符号"
+  - "phase=IDLE: out_i=out_q=0 (真零符号, 非星座点), out_valid 响应 sym_req; 供 tx_ctrl_fsm 在末终止符号后驱 3 拍喂 SRRC 尾 flush 零 (区别于终止符号=全0bit的非零星座点)"
   - "phase_start 当拍本地符号计数器清零"
   - "last_interval=1 的 interval 数据+2终止后, FSM 不再发 PITS phase (末段无 PITS)"
   - "lts_u/pfi 在 kstart 锁存, 包内不变"
@@ -185,6 +186,7 @@ endgroup
 - assert: GI 4 符号 == 该 u 的 LTS xu(13..16)。
 - assert: last_interval 后无 PITS phase。
 - assert: out_valid 仅在 sym_req 当拍为高(符号率受 SRRC 控)。
+- assert: phase=IDLE & sym_req 时 out_i==0 & out_q==0 (尾 flush 真零)。
 - assert: 复位期 out_valid==0。
 
 ### 4.5 充分性二级指标 [默认]
@@ -205,7 +207,7 @@ endgroup
     16×17 个 Q0.9 复符号(I/Q 各 10bit ≈ 16·17·20 = 5440bit);GI = 该 u 的 xu(13..16) 取 ROM 后 4 项。
   - **Table 7.7 小 ROM**:u→p(若 LTS ROM 已按 u 索引, p 仅用于离线生成, 可不在线存)。
   - **本地序列计数器** [决策✓]:PREAMBLE(74)/PITS(6)子计数;phase_start 复位。
-  - **输出 mux**:按 phase 选 {训练计数器符号 / FIFO 数据符号 / PITS},sym_req 驱动。
+  - **输出 mux**:按 phase 选 {训练计数器符号 / FIFO 数据符号 / PITS / IDLE→(0,0)},sym_req 驱动。
 - 流水线:[默认] ROM 查表 + mux 组合 + 1 级输出寄存;符号率 2Msym/s(每 24 拍 1 符号)远低于
   48MHz, 余量充足。
 - 时序风险:无算术(归一化/exp 离线进 ROM),仅查表+mux,组合浅,48MHz 无压力。
