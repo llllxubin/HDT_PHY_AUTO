@@ -115,6 +115,67 @@ def compare_puncturing(stim_path, dump_path, ref_mod):
         total += len(golden)
     return True, f"{len(stim_seqs)}序列, {total}cycle 全匹配, 0容差"
 
+def compare_symbol_mapper(stim_path, dump_path, ref_mod):
+    # symbol_mapper 逐符号 0 容差比对量化金标 (spec §4.1).
+    # stim 序列体: line0="M<mod>"; line1.. = "<b0><b1><cnt><ss><fl>" (5字符/拍).
+    # dump 序列体: 每个 sym_valid=1 的符号一行 "<sym_i> <sym_q>" (有符号十进制).
+    #   (含 TB 排空流水捕获的尾符号; 流水延迟无关, 仅比对有序符号列。)
+    # golden 用 ref_mod.map_symbols 独立按 spec §1 推导, 逐符号 (i,q) 精确比对。
+    def parse_stim(path):
+        seqs, cur = [], None
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("# SEQ"):
+                    if cur is not None:
+                        seqs.append(cur)
+                    cur = {"mod": None, "cyc": []}
+                elif not line or line.startswith("#"):
+                    continue
+                elif line.startswith("M"):
+                    cur["mod"] = int(line[1:])
+                else:  # "<b0><b1><cnt><ss><fl>"
+                    cur["cyc"].append((int(line[0]), int(line[1]), int(line[2]),
+                                       int(line[3]), int(line[4])))
+        if cur is not None:
+            seqs.append(cur)
+        return seqs
+
+    def parse_dump(path):
+        seqs, cur = [], None
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("# SEQ"):
+                    if cur is not None:
+                        seqs.append(cur)
+                    cur = []
+                elif line and not line.startswith("#"):
+                    parts = line.split()
+                    cur.append((int(parts[0]), int(parts[1])))  # (sym_i, sym_q)
+        if cur is not None:
+            seqs.append(cur)
+        return seqs
+
+    if not os.path.exists(dump_path):
+        return False, f"找不到RTL dump: {dump_path}"
+    stim_seqs = parse_stim(stim_path)
+    dump_seqs = parse_dump(dump_path)
+    if len(stim_seqs) != len(dump_seqs):
+        return False, f"序列数不符: 激励{len(stim_seqs)} vs RTL{len(dump_seqs)}"
+    total = 0
+    for si, (s, rtl) in enumerate(zip(stim_seqs, dump_seqs)):
+        golden = ref_mod.map_symbols(s["cyc"], s["mod"])
+        if len(golden) != len(rtl):
+            return False, (f"序列{si} 符号数不符(mod={s['mod']}): "
+                           f"golden{len(golden)} vs RTL{len(rtl)}")
+        for k, (g, r) in enumerate(zip(golden, rtl)):
+            if g != r:
+                return False, (f"序列{si} 第{k}符号失配(mod={s['mod']}): "
+                               f"golden(i={g[0]},q={g[1]}) vs RTL(i={r[0]},q={r[1]})")
+        total += len(golden)
+    return True, f"{len(stim_seqs)}序列, {total}符号 全匹配, 0容差"
+
 def not_impl(name):
     def _f(*a): raise NotImplementedError(f"{name} 比对逻辑待实现")
     return _f
@@ -123,7 +184,7 @@ COMPARATORS = {
     "fec_encoder":      compare_fec_encoder,
     "interval_spacing": not_impl("interval_spacing"),
     "puncturing":       compare_puncturing,
-    "symbol_mapper":    not_impl("symbol_mapper"),
+    "symbol_mapper":    compare_symbol_mapper,
     "symbol_assembler": not_impl("symbol_assembler"),
     "srrc_upsample":    not_impl("srrc_upsample"),
     "tx_ctrl_fsm":      not_impl("tx_ctrl_fsm"),

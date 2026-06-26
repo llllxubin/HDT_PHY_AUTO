@@ -80,6 +80,53 @@ MUTATIONS_BY_MODULE = {
          "find": "RateHalf:   pat_vec = 30'h3FFF_FFFF;",
          "repl": "RateHalf:   pat_vec = 30'h3FFF_FFFE;"},
     ],
+
+    # ---- symbol_mapper (spec §4.5: 表入口I/Q错、偶奇表互换、k不复位、位序反转、
+    #      SB取错、末符号漏补0、+1.0回绕代饱和、÷10代÷√10) ----
+    # find 串均已核对在 rtl/symbol_mapper.sv 中唯一出现; 各变异语法合法、语义确错,
+    # 应由现有 compare(逐符号0容差) / sva / selfcheck 杀死。
+    "symbol_mapper": [
+        # 1. 表入口 I 错: 16QAM 0xa(+3+3j) 的 rom_i QamB->QamA -> compare 逐符号杀。
+        {"name": "tab_i_err",  "desc": "16QAM 0xa rom_i QamB->QamA",
+         "find": "4'ha: begin\n            rom_i = QamB;\n            rom_q = QamB;",
+         "repl": "4'ha: begin\n            rom_i = QamA;\n            rom_q = QamB;"},
+        # 2. 表入口 Q 错: 8PSK 011(e^jπ/2=+j) 的 rom_q UnP->UnN -> compare 杀。
+        {"name": "tab_q_err",  "desc": "8PSK 011 rom_q UnP->UnN",
+         "find": "3'b011: begin\n            rom_i = ZeroV;\n            rom_q = UnP;",
+         "repl": "3'b011: begin\n            rom_i = ZeroV;\n            rom_q = UnN;"},
+        # 3. QPSK 偶/奇表互换: 选择子 base_kpar 取反 -> 偶走奇表/奇走偶表
+        #    -> compare + SVA A_QFE(首符号非偶) 杀。
+        {"name": "swap_evodd", "desc": "QPSK 偶/奇相位表互换 (base_kpar 取反)",
+         "find": "base_kpar, emit_idx[1:0]",
+         "repl": "(~base_kpar), emit_idx[1:0]"},
+        # 4. k 奇偶不复位: seq_start 不清 base_kpar -> 脏 k 历史下首符号走奇表
+        #    -> selfcheck(kreset 不变量) + compare 杀。
+        {"name": "k_noreset",  "desc": "seq_start 不复位 k 奇偶",
+         "find": "base_kpar = seq_start ? 1'b0 : kpar_q;",
+         "repl": "base_kpar = kpar_q;"},
+        # 5. 符号内 bit 位序反转: 首移入位错用 code_in[1] (应为 code_in[0])
+        #    -> 符号 bit 组 n0/n1 装配错 -> compare 杀。
+        {"name": "bitorder",   "desc": "累加首位错用 code_in[1] (位序反转)",
+         "find": "t_acc = {t_acc[2:0], code_in[0]};",
+         "repl": "t_acc = {t_acc[2:0], code_in[1]};"},
+        # 6. SB 取错: QPSK 每符号 bit 数 2->3 -> 攒符号边界全错 (符号数不符)
+        #    -> compare 杀。
+        {"name": "sb_err",     "desc": "QPSK SB 2->3",
+         "find": "2'b00:   sb = 3'd2;  // π/4 QPSK",
+         "repl": "2'b00:   sb = 3'd3;  // π/4 QPSK"},
+        # 7. 末符号漏补 0: flush 条件恒假 -> 末残余符号不产出 (符号数缺) -> compare 杀。
+        {"name": "no_flush",   "desc": "flush 漏补 0 (条件恒假)",
+         "find": "if (sym_flush && (t_cnt != 3'd0)) begin",
+         "repl": "if (1'b0 && (t_cnt != 3'd0)) begin"},
+        # 8. +1.0 回绕代饱和: UnP +511 -> -512 (回绕) -> PSK +轴点输出错 -> compare 杀。
+        {"name": "wrap_unp",   "desc": "+1.0 回绕 -512 代替饱和 +511",
+         "find": "localparam logic signed [9:0] UnP = 10'sd511;  // +1.0 饱和到 +511",
+         "repl": "localparam logic signed [9:0] UnP = -10'sd512;  // +1.0 饱和到 +511"},
+        # 9. 16QAM 归一化错: ÷√10 代 ÷10 (QamB 486->154) -> 16QAM 幅度错 -> compare 杀。
+        {"name": "norm_div10", "desc": "16QAM ÷10 代 ÷√10 (QamB 486->154)",
+         "find": "localparam logic signed [9:0] QamB = 10'sd486;  // +3/√10",
+         "repl": "localparam logic signed [9:0] QamB = 10'sd154;  // +3/√10"},
+    ],
 }
 
 def sh(cmd):

@@ -101,6 +101,150 @@ def gen_puncturing():
 
     return seqs
 
+def gen_symbol_mapper():
+    # symbol_mapper 激励 (W1/modules/symbol_mapper.md frozen §4.2).
+    # 序列体 token (与共享 main() 一行一 token 兼容):
+    #   line0: "M<mod_sel>"  调制 0=π/4QPSK 1=8PSK 2=16QAM (kstart 锁存, 序列内不变)
+    #   line1..: "<b0><b1><cnt><ss><fl>" 5字符/拍:
+    #       b0=code_in[0](先收到的位), b1=code_in[1](后到), cnt=有效位数 0/1/2,
+    #       ss=seq_start(该拍清 n 复位 k), fl=sym_flush(末符号补0产出)
+    #   每序列首拍 ss=1 (锁存 mod, 复位 k). 序列末多发几拍 cnt=0 空拍由 TB 排空流水(此处不编码).
+    # 覆盖 spec §4.2: 三调制全 32 入口 / 偶奇交替 / 中途 ss 复位 k / flush 各补0位数 /
+    #   +1.0 饱和 / 16QAM 四象限极值+内点 / cnt=0 气泡 / cnt=1与2混合攒符号 / 背靠背异 mod。
+    SB = {0: 2, 1: 3, 2: 4}
+    seqs = []
+
+    def emit(mod, cycles):
+        # cycles: list of (b0,b1,cnt,ss,fl)
+        body = [f"M{mod}"]
+        for (b0, b1, cnt, ss, fl) in cycles:
+            body.append(f"{b0}{b1}{cnt}{ss}{fl}")
+        seqs.append(body)
+
+    def pack2(bits, ss0=1):
+        # 两位/拍 (cnt=2); 奇数尾位用 cnt=1; 首拍带 ss0
+        cyc = []
+        i = 0
+        first = True
+        while i < len(bits):
+            ss = 1 if first else 0
+            first = False
+            if i + 1 < len(bits):
+                cyc.append((bits[i], bits[i + 1], 2, ss, 0))
+                i += 2
+            else:
+                cyc.append((bits[i], 0, 1, ss, 0))
+                i += 1
+        return cyc
+
+    def pack1(bits, ss0=1):
+        # 一位/拍 (cnt=1)
+        cyc = []
+        for idx, b in enumerate(bits):
+            cyc.append((b, 0, 1, 1 if idx == 0 else 0, 0))
+        return cyc
+
+    def groups_to_bits(groups):
+        # groups: list of tuple(bit...) 按 n0..(n0=先发=MSB) -> 扁平到达序位流
+        bits = []
+        for g in groups:
+            bits.extend(g)
+        return bits
+
+    # ---- 1. 三调制全查表入口遍历 ----
+    # QPSK: 每组合连发两次 -> 各组合都落在 偶(k even) 与 奇(k odd) 位置 => x_qpsk 8 入口全覆盖
+    qpsk_groups = []
+    for g in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+        qpsk_groups += [g, g]
+    emit(0, pack2(groups_to_bits(qpsk_groups)))
+
+    # 8PSK: 8 组合各一次 (parity 无关)
+    psk8_groups = [(a, b, c) for a in (0, 1) for b in (0, 1) for c in (0, 1)]
+    emit(1, pack2(groups_to_bits(psk8_groups)))
+
+    # 16QAM: 16 组合各一次 (含四象限极值 0000/1010 与内点 0101/1111)
+    qam_groups = [(a, b, c, d) for a in (0, 1) for b in (0, 1)
+                  for c in (0, 1) for d in (0, 1)]
+    emit(2, pack2(groups_to_bits(qam_groups)))
+
+    # ---- 2. π/4 QPSK 偶/奇相位交替: 长串交替验证 k 奇偶切换 ----
+    emit(0, pack2([0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1]))  # 8 符号 k=0..7
+
+    # ---- 3. 中途 seq_start 复位 k (序列干净, 无残留) ----
+    # 先 3 个 QPSK 符号 (k=0,1,2), 再 ss 复位 -> 其后首符号回偶表
+    c = pack2([0, 1, 1, 0, 1, 1])  # 3 符号: (0,1)(1,0)(1,1)
+    c += [(0, 0, 2, 1, 0)]          # ss 复位 k -> 该符号 (0,0) 必为偶
+    c += [(0, 1, 2, 0, 0)]          # 下一符号 (0,1) 奇
+    emit(0, c)
+
+    # ---- 3b. 中途 seq_start 携残留 (判定: 新序列 n=0 丢弃残留 1bit) ----
+    # 喂 1bit 残留(未成符号) 后 ss 带新符号 bit; golden 丢弃残留 -> 首符号 (1,1) 偶。
+    c = [(1, 0, 1, 1, 0)]           # 残留 1 bit (b0=1)
+    c += [(1, 1, 2, 1, 0)]          # ss: 丢弃残留, 新符号 (1,1) 偶
+    c += [(0, 0, 2, 0, 0)]          # 次符号 (0,0) 奇
+    emit(0, c)
+
+    # ---- 4. flush 各补 0 位数 ----
+    # QPSK pad1: 喂 1bit 再 flush
+    emit(0, [(1, 0, 1, 1, 0), (0, 0, 0, 0, 1)])
+    # 8PSK pad1: 喂 2bit 再 flush ; pad2: 喂 1bit 再 flush
+    emit(1, [(0, 1, 2, 1, 0), (0, 0, 0, 0, 1)])
+    emit(1, [(1, 0, 1, 1, 0), (0, 0, 0, 0, 1)])
+    # 16QAM pad1: 3bit; pad2: 2bit; pad3: 1bit
+    emit(2, [(1, 0, 2, 1, 0), (1, 0, 1, 0, 0), (0, 0, 0, 0, 1)])  # 3 bit -> pad1
+    emit(2, [(1, 1, 2, 1, 0), (0, 0, 0, 0, 1)])                   # 2 bit -> pad2
+    emit(2, [(1, 0, 1, 1, 0), (0, 0, 0, 0, 1)])                   # 1 bit -> pad3
+    # flush 累加器恰空 (whole 符号刚产完再 flush): 不应再产符号
+    emit(0, [(0, 0, 2, 1, 0), (0, 0, 0, 0, 1)])  # 1 符号 (0,0) + 空 flush
+
+    # ---- 5. +1.0 饱和点 (PSK +轴): QPSK 奇(1,0)=+1, 奇(0,0)=+j; 8PSK 000=+1, 011=+j ----
+    # QPSK: 让 (1,0) 落奇位 -> +511; 先垫一符号
+    emit(0, pack2([0, 0, 1, 0, 0, 0]))  # 符号0 (0,0)偶; 符号1 (1,0)奇=+1饱和; 符号2 (0,0)偶
+    emit(1, pack2([0, 0, 0, 0, 1, 1]))  # 8PSK 000=+1 饱和, 011=+j 饱和
+
+    # ---- 6. 16QAM 四象限极值 + 内点 (显式再点一遍) ----
+    emit(2, pack2(groups_to_bits([(0, 0, 0, 0), (1, 0, 1, 0), (0, 1, 0, 1), (1, 1, 1, 1)])))
+
+    # ---- 7. 输入气泡 cnt=0: 累加器不前进 ----
+    c = [(0, 1, 2, 1, 0), (0, 0, 0, 0, 0), (1, 0, 2, 0, 0),
+         (0, 0, 0, 0, 0), (1, 1, 2, 0, 0)]  # 3 符号, 中间夹气泡
+    emit(0, c)
+
+    # ---- 8. cnt=1 与 cnt=2 混合攒符号边界 (16QAM 需 4bit: 2+2 / 1+1+1+1 / 2+1+1) ----
+    emit(2, [(0, 0, 2, 1, 0), (1, 0, 2, 0, 0)])                         # 2+2 -> 0010
+    emit(2, pack1([0, 0, 1, 0]))                                        # 1+1+1+1 -> 0010
+    emit(2, [(0, 0, 2, 1, 0), (1, 0, 1, 0, 0), (0, 0, 1, 0, 0)])        # 2+1+1 -> 0010
+    # QPSK 跨拍 cnt=1 攒符号
+    emit(0, [(0, 0, 1, 1, 0), (1, 0, 1, 0, 0)])                         # 1+1 -> (0,1)
+
+    # ---- 9. 背靠背两序列不同 mod_sel (kstart 重锁存) ----
+    emit(0, pack2(groups_to_bits([(0, 1), (1, 0)])))
+    emit(1, pack2(groups_to_bits([(1, 0, 1), (0, 1, 1)])))
+    emit(2, pack2(groups_to_bits([(1, 1, 0, 0), (0, 0, 1, 1)])))
+    emit(0, pack2(groups_to_bits([(1, 1), (0, 0)])))
+
+    # ---- 10. 随机加强 (各 mod 混合 + 偶发气泡 + 偶发末符号残留+flush) ----
+    # 单序列里把"完整 bits + 可选残留"一次性扁平到一个 ss-only-首拍 的 cycle 流, 避免 ss 误置。
+    random.seed(20260626)
+    for _ in range(40):
+        mod = random.randint(0, 2)
+        sb = SB[mod]
+        nsym = random.randint(1, 8)
+        nbits = nsym * sb
+        do_flush = random.random() < 0.4
+        rem = random.randint(1, sb - 1) if do_flush else 0
+        bits = [random.randint(0, 1) for _ in range(nbits + rem)]
+        cyc = pack2(bits) if random.random() < 0.7 else pack1(bits)
+        # 偶发气泡插入 (cnt=0, 不前进)
+        if random.random() < 0.5 and len(cyc) > 1:
+            pos = random.randint(1, len(cyc) - 1)
+            cyc.insert(pos, (0, 0, 0, 0, 0))
+        if do_flush:
+            cyc.append((0, 0, 0, 0, 1))  # flush: 补齐尾部 rem 位残留
+        emit(mod, cyc)
+
+    return seqs
+
 def gen_not_implemented(name):
     def _f(): raise NotImplementedError(f"{name} 激励待实现 (W1 未 frozen)")
     return _f
@@ -109,7 +253,7 @@ GENERATORS = {
     "fec_encoder":      gen_fec_encoder,
     "interval_spacing": gen_not_implemented("interval_spacing"),
     "puncturing":       gen_puncturing,
-    "symbol_mapper":    gen_not_implemented("symbol_mapper"),
+    "symbol_mapper":    gen_symbol_mapper,
     "symbol_assembler": gen_not_implemented("symbol_assembler"),
     "srrc_upsample":    gen_not_implemented("srrc_upsample"),
     "tx_ctrl_fsm":      gen_not_implemented("tx_ctrl_fsm"),

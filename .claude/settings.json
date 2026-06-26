@@ -49,6 +49,8 @@
       "Write(ref/fec_encoder/ref_model.py)",
       "Edit(ref/puncturing/ref_model.py)",
       "Write(ref/puncturing/ref_model.py)",
+      "Edit(ref/symbol_mapper/ref_model.py)",
+      "Write(ref/symbol_mapper/ref_model.py)",
       "Edit(W1/modules/fec_encoder.md)",
       "Write(W1/modules/fec_encoder.md)",
       "Edit(W1/modules/interval_spacing.md)",
